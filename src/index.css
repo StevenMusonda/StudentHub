@@ -1,0 +1,27 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --font-sans: "Lexend", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-background-dark: #101922;
+  --color-card-dark: #192633;
+  --color-primary: #137fec;
+  --color-emerald-accent: #10b981;
+  --color-orange-accent: #f59e0b;
+  --color-purple-accent: #a855f7;
+}
+
+@layer base {
+  body {
+    @apply bg-background-dark text-slate-100 font-sans;
+  }
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
