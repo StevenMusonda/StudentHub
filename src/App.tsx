@@ -44,6 +44,13 @@ const calculateDaysLeft = (dueDate: string) => {
   return days;
 };
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 18) return "Good Afternoon";
+  return "Good Evening";
+};
+
 // --- Storage Hook ---
 
 function useLocalStorage<T>(key: string, initialValue: T) {
@@ -232,7 +239,7 @@ export default function App() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-6 pt-6 pb-24">
       <header className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Good Morning, MK</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{getGreeting()}, MK</h1>
           <p className="text-primary/70 text-sm font-medium">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
         <div className="relative">
