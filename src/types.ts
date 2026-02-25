@@ -52,6 +52,9 @@ export interface StudySession {
   hours: number;
   notes: string;
   completed: boolean;
+  timerSeconds?: number;
+  timerRunning?: boolean;
+  lastTimerUpdate?: number;
 }
 
 export interface Reminder {
@@ -59,4 +62,15 @@ export interface Reminder {
   text: string;
   completed: boolean;
   createdAt: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  loading: boolean;
 }

@@ -9,7 +9,6 @@ import {
   Calendar, 
   BookOpen, 
   Bell, 
-  User, 
   Home as HomeIcon, 
   CheckCircle2, 
   Clock, 
@@ -17,6 +16,8 @@ import {
   MoreVertical, 
   Plus, 
   Pause, 
+  Play,
+  Square,
   SkipForward,
   Search,
   Settings,
@@ -24,9 +25,15 @@ import {
   Timer,
   Check,
   X,
-  Trash2
+  Trash2,
+  LogOut,
+  User as UserIcon,
+  Key,
+  Mail,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
-import { Tab, ClassSession, Assignment, StudySession, Reminder, Day, AssignmentStatus } from './types';
+import { Tab, ClassSession, Assignment, StudySession, Reminder, Day, AssignmentStatus, User, AuthState } from './types';
 
 // --- Helpers ---
 
@@ -42,6 +49,13 @@ const calculateDaysLeft = (dueDate: string) => {
   const diff = new Date(dueDate).getTime() - new Date().getTime();
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
   return days;
+};
+
+const formatDuration = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 const getGreeting = () => {
@@ -78,6 +92,128 @@ function useLocalStorage<T>(key: string, initialValue: T) {
 }
 
 // --- Components ---
+
+const AuthScreen = ({ onAuthSuccess }: { onAuthSuccess: (auth: AuthState) => void }) => {
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    const endpoint = mode === 'login' ? '/api/auth/login' : mode === 'register' ? '/api/auth/register' : '/api/auth/forgot-password';
+    
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+
+      if (mode === 'forgot') {
+        setMessage(data.message);
+      } else {
+        onAuthSuccess({ user: data.user, token: data.token, loading: false });
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background-dark flex items-center justify-center p-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-card-dark p-8 rounded-3xl border border-slate-800 shadow-2xl"
+      >
+        <div className="text-center mb-8">
+          <div className="size-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-primary">
+            <BookOpen size={32} />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">StudentHub</h1>
+          <p className="text-slate-400 text-sm mt-2">
+            {mode === 'login' ? 'Welcome back! Please login.' : mode === 'register' ? 'Create an account to sync data.' : 'Reset your password.'}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-slate-500 ml-1">Email Address</label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <input 
+                type="email" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none transition-all"
+                placeholder="name@example.com"
+              />
+            </div>
+          </div>
+
+          {mode !== 'forgot' && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-500 ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input 
+                  type="password" 
+                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-primary outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-red-500 text-xs font-medium ml-1">{error}</p>}
+          {message && <p className="text-emerald-500 text-xs font-medium ml-1">{message}</p>}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : mode === 'register' ? 'Create Account' : 'Send Reset Link'}
+            {!loading && <ArrowRight size={18} />}
+          </button>
+        </form>
+
+        <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col gap-3 text-center">
+          {mode === 'login' ? (
+            <>
+              <button onClick={() => setMode('register')} className="text-sm text-slate-400 hover:text-primary transition-colors">
+                Don't have an account? <span className="text-primary font-bold">Sign Up</span>
+              </button>
+              <button onClick={() => setMode('forgot')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                Forgot password?
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setMode('login')} className="text-sm text-slate-400 hover:text-primary transition-colors">
+              Already have an account? <span className="text-primary font-bold">Sign In</span>
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
   if (!isOpen) return null;
@@ -133,6 +269,7 @@ const BottomNav = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [auth, setAuth] = useLocalStorage<AuthState>('studenthub_auth', { user: null, token: null, loading: true });
   const [classes, setClasses] = useLocalStorage<ClassSession[]>('studenthub_classes', []);
   const [assignments, setAssignments] = useLocalStorage<Assignment[]>('studenthub_assignments', []);
   const [studySessions, setStudySessions] = useLocalStorage<StudySession[]>('studenthub_study', []);
@@ -140,6 +277,104 @@ export default function App() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<Tab | null>(null);
+
+  // --- Sync Logic ---
+  useEffect(() => {
+    if (!auth.token) return;
+
+    const syncData = async () => {
+      try {
+        const res = await fetch('/api/data/sync', {
+          headers: { 'Authorization': `Bearer ${auth.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Simple conflict resolution: server wins for now if data exists
+          if (data.updated_at) {
+            setClasses(data.classes);
+            setAssignments(data.assignments);
+            setStudySessions(data.study_sessions);
+            setReminders(data.reminders);
+          }
+        }
+      } catch (err) {
+        console.error('Sync error:', err);
+      }
+    };
+
+    syncData();
+  }, [auth.token]); // Only sync on login
+
+  useEffect(() => {
+    if (!auth.token) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await fetch('/api/data/sync', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${auth.token}`
+          },
+          body: JSON.stringify({ classes, assignments, study_sessions: studySessions, reminders })
+        });
+      } catch (err) {
+        console.error('Push error:', err);
+      }
+    }, 2000); // Debounce sync
+
+    return () => clearTimeout(timer);
+  }, [classes, assignments, studySessions, reminders, auth.token]);
+
+  // --- Timer Logic ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStudySessions(prev => {
+        let changed = false;
+        const next = prev.map(session => {
+          if (session.timerRunning) {
+            const now = Date.now();
+            const lastUpdate = session.lastTimerUpdate || now;
+            const delta = Math.floor((now - lastUpdate) / 1000);
+            if (delta >= 1) {
+              changed = true;
+              return {
+                ...session,
+                timerSeconds: (session.timerSeconds || 0) + delta,
+                lastTimerUpdate: now
+              };
+            }
+          }
+          return session;
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [setStudySessions]);
+
+  const startTimer = (id: string) => {
+    setStudySessions(prev => prev.map(s => s.id === id ? { ...s, timerRunning: true, lastTimerUpdate: Date.now() } : s));
+  };
+
+  const pauseTimer = (id: string) => {
+    setStudySessions(prev => prev.map(s => s.id === id ? { ...s, timerRunning: false } : s));
+  };
+
+  const stopTimer = (id: string) => {
+    setStudySessions(prev => prev.map(s => {
+      if (s.id === id) {
+        const elapsedHours = (s.timerSeconds || 0) / 3600;
+        return { 
+          ...s, 
+          timerRunning: false, 
+          timerSeconds: 0, 
+          hours: Number((s.hours + elapsedHours).toFixed(2)) 
+        };
+      }
+      return s;
+    }));
+  };
 
   // --- Dashboard Logic ---
   const today = getToday();
@@ -209,6 +444,8 @@ export default function App() {
       hours: Number(formData.get('hours')),
       notes: formData.get('notes') as string,
       completed: false,
+      timerSeconds: 0,
+      timerRunning: false,
     };
     setStudySessions([...studySessions, newSession]);
     setIsModalOpen(false);
@@ -238,15 +475,25 @@ export default function App() {
   const HomeScreen = () => (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-6 pt-6 pb-24">
       <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{getGreeting()}, MK</h1>
-          <p className="text-primary/70 text-sm font-medium">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        <div className="flex items-center gap-3">
+          <div className="size-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary">
+            <UserIcon size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">{getGreeting()}, {auth.user?.email.split('@')[0] || 'MK'}</h1>
+            <p className="text-primary/70 text-xs font-medium">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+          </div>
         </div>
-        <div className="relative">
-          <button onClick={() => setActiveTab('reminders')} className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-            <Bell size={20} />
+        <div className="flex items-center gap-2">
+          <button onClick={() => setAuth({ user: null, token: null, loading: false })} className="size-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors">
+            <LogOut size={20} />
           </button>
-          {reminders.some(r => !r.completed) && <span className="absolute top-0 right-0 size-2.5 bg-red-500 border-2 border-background-dark rounded-full"></span>}
+          <div className="relative">
+            <button onClick={() => setActiveTab('reminders')} className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Bell size={20} />
+            </button>
+            {reminders.some(r => !r.completed) && <span className="absolute top-0 right-0 size-2.5 bg-red-500 border-2 border-background-dark rounded-full"></span>}
+          </div>
         </div>
       </header>
 
@@ -424,7 +671,40 @@ export default function App() {
               </div>
               <h3 className="font-bold text-base mb-0.5">{block.title}</h3>
               <p className="text-xs text-slate-500">{block.hours} hours • {block.time}</p>
-              <button onClick={() => setStudySessions(studySessions.filter(s => s.id !== block.id))} className="mt-2 text-slate-600 hover:text-red-500 text-xs flex items-center gap-1">
+              
+              <div className="mt-4 flex items-center justify-between bg-black/20 p-3 rounded-xl">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-slate-500">Session Timer</span>
+                  <span className={`text-lg font-mono font-bold ${block.timerRunning ? 'text-primary animate-pulse' : 'text-slate-300'}`}>
+                    {formatDuration(block.timerSeconds || 0)}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  {!block.timerRunning ? (
+                    <button 
+                      onClick={() => startTimer(block.id)}
+                      className="p-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                    >
+                      <Play size={18} fill="currentColor" />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => pauseTimer(block.id)}
+                      className="p-2 rounded-lg bg-orange-accent/20 text-orange-accent hover:bg-orange-accent/30 transition-colors"
+                    >
+                      <Pause size={18} fill="currentColor" />
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => stopTimer(block.id)}
+                    className="p-2 rounded-lg bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors"
+                  >
+                    <Square size={18} fill="currentColor" />
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={() => setStudySessions(studySessions.filter(s => s.id !== block.id))} className="mt-4 text-slate-600 hover:text-red-500 text-xs flex items-center gap-1">
                 <Trash2 size={12} /> Remove
               </button>
             </div>
@@ -519,75 +799,82 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background-dark text-slate-100 selection:bg-primary/30">
-      <AnimatePresence mode="wait">
-        {activeTab === 'home' && <HomeScreen key="home" />}
-        {activeTab === 'schedule' && <ScheduleScreen key="schedule" />}
-        {activeTab === 'study' && <StudyScreen key="study" />}
-        {activeTab === 'tasks' && <TasksScreen key="tasks" />}
-        {activeTab === 'reminders' && <RemindersScreen key="reminders" />}
-      </AnimatePresence>
-      
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      {!auth.token ? (
+        <AuthScreen onAuthSuccess={(data) => setAuth(data)} />
+      ) : (
+        <>
+          <AnimatePresence mode="wait">
+            {activeTab === 'home' && <HomeScreen key="home" />}
+            {activeTab === 'schedule' && <ScheduleScreen key="schedule" />}
+            {activeTab === 'study' && <StudyScreen key="study" />}
+            {activeTab === 'tasks' && <TasksScreen key="tasks" />}
+            {activeTab === 'reminders' && <RemindersScreen key="reminders" />}
+          </AnimatePresence>
+          
+          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title={`Add ${modalType === 'schedule' ? 'Class' : modalType === 'study' ? 'Study Session' : modalType === 'tasks' ? 'Assignment' : 'Reminder'}`}
-      >
-        {modalType === 'schedule' && (
-          <form onSubmit={addClass} className="space-y-4">
-            <input name="title" placeholder="Subject Name" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <input name="subtitle" placeholder="Subtitle (e.g. Advanced Calculus)" className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <div className="grid grid-cols-2 gap-4">
-              <input name="time" type="time" required className="bg-slate-800 border-none rounded-xl p-3" />
-              <input name="duration" placeholder="Duration (e.g. 90 min)" required className="bg-slate-800 border-none rounded-xl p-3" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <input name="room" placeholder="Room" required className="bg-slate-800 border-none rounded-xl p-3" />
-              <input name="instructor" placeholder="Instructor" required className="bg-slate-800 border-none rounded-xl p-3" />
-            </div>
-            <select name="day" required className="w-full bg-slate-800 border-none rounded-xl p-3">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <select name="color" className="w-full bg-slate-800 border-none rounded-xl p-3">
-              <option value="blue">Blue</option>
-              <option value="emerald">Emerald</option>
-              <option value="orange">Orange</option>
-              <option value="purple">Purple</option>
-            </select>
-            <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Class</button>
-          </form>
-        )}
+          <Modal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            title={`Add ${modalType === 'schedule' ? 'Class' : modalType === 'study' ? 'Study Session' : modalType === 'tasks' ? 'Assignment' : 'Reminder'}`}
+          >
+            {/* ... modal content ... */}
+            {modalType === 'schedule' && (
+              <form onSubmit={addClass} className="space-y-4">
+                <input name="title" placeholder="Subject Name" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <input name="subtitle" placeholder="Subtitle (e.g. Advanced Calculus)" className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <div className="grid grid-cols-2 gap-4">
+                  <input name="time" type="time" required className="bg-slate-800 border-none rounded-xl p-3" />
+                  <input name="duration" placeholder="Duration (e.g. 90 min)" required className="bg-slate-800 border-none rounded-xl p-3" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <input name="room" placeholder="Room" required className="bg-slate-800 border-none rounded-xl p-3" />
+                  <input name="instructor" placeholder="Instructor" required className="bg-slate-800 border-none rounded-xl p-3" />
+                </div>
+                <select name="day" required className="w-full bg-slate-800 border-none rounded-xl p-3">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select name="color" className="w-full bg-slate-800 border-none rounded-xl p-3">
+                  <option value="blue">Blue</option>
+                  <option value="emerald">Emerald</option>
+                  <option value="orange">Orange</option>
+                  <option value="purple">Purple</option>
+                </select>
+                <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Class</button>
+              </form>
+            )}
 
-        {modalType === 'study' && (
-          <form onSubmit={addStudySession} className="space-y-4">
-            <input name="title" placeholder="Topic" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <input name="subject" placeholder="Subject" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <div className="grid grid-cols-2 gap-4">
-              <input name="time" type="time" required className="bg-slate-800 border-none rounded-xl p-3" />
-              <input name="hours" type="number" step="0.5" placeholder="Hours" required className="bg-slate-800 border-none rounded-xl p-3" />
-            </div>
-            <textarea name="notes" placeholder="Notes" className="w-full bg-slate-800 border-none rounded-xl p-3 h-24" />
-            <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Session</button>
-          </form>
-        )}
+            {modalType === 'study' && (
+              <form onSubmit={addStudySession} className="space-y-4">
+                <input name="title" placeholder="Topic" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <input name="subject" placeholder="Subject" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <div className="grid grid-cols-2 gap-4">
+                  <input name="time" type="time" required className="bg-slate-800 border-none rounded-xl p-3" />
+                  <input name="hours" type="number" step="0.5" placeholder="Hours" required className="bg-slate-800 border-none rounded-xl p-3" />
+                </div>
+                <textarea name="notes" placeholder="Notes" className="w-full bg-slate-800 border-none rounded-xl p-3 h-24" />
+                <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Session</button>
+              </form>
+            )}
 
-        {modalType === 'tasks' && (
-          <form onSubmit={addAssignment} className="space-y-4">
-            <input name="title" placeholder="Assignment Title" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <input name="subject" placeholder="Subject" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <input name="dueDate" type="date" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Assignment</button>
-          </form>
-        )}
+            {modalType === 'tasks' && (
+              <form onSubmit={addAssignment} className="space-y-4">
+                <input name="title" placeholder="Assignment Title" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <input name="subject" placeholder="Subject" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <input name="dueDate" type="date" required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Assignment</button>
+              </form>
+            )}
 
-        {modalType === 'reminders' && (
-          <form onSubmit={addReminder} className="space-y-4">
-            <input name="text" placeholder="Reminder text..." required className="w-full bg-slate-800 border-none rounded-xl p-3" />
-            <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Reminder</button>
-          </form>
-        )}
-      </Modal>
+            {modalType === 'reminders' && (
+              <form onSubmit={addReminder} className="space-y-4">
+                <input name="text" placeholder="Reminder text..." required className="w-full bg-slate-800 border-none rounded-xl p-3" />
+                <button type="submit" className="w-full bg-primary py-3 rounded-xl font-bold">Add Reminder</button>
+              </form>
+            )}
+          </Modal>
+        </>
+      )}
     </div>
   );
 }
